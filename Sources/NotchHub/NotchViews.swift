@@ -6,13 +6,14 @@ import SwiftUI
 struct NotchRootView: View {
     @ObservedObject var model: HubModel
     @ObservedObject var state: WindowState
+    @ObservedObject private var settings = Settings.shared
 
     private var g: NotchGeometry { state.geometry }
     private var open: Bool { state.isOpen }
     /// Göz atmada yalnızca öne çıkan etkinlik; kullanıcı açtıysa hepsi.
     private var cards: [HubModel.Entry] {
         if state.peeking && !state.expanded { return model.primary.map { [$0] } ?? [] }
-        return Array(model.ordered.prefix(NotchGeometry.maxCards))
+        return Array(model.ordered.prefix(g.maxCards))
     }
 
     private var size: CGSize {
@@ -79,7 +80,7 @@ struct NotchRootView: View {
                 } else {
                     HStack(spacing: NotchGeometry.cardSpacing) {
                         ForEach(cards) { e in
-                            CardView(entry: e, model: model)
+                            CardView(entry: e, model: model, width: g.cardWidth)
                                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                         }
                     }
@@ -150,6 +151,7 @@ struct NotchShape: Shape {
 struct CardView: View {
     let entry: HubModel.Entry
     @ObservedObject var model: HubModel
+    let width: CGFloat
 
     private var a: NotchActivity { entry.activity }
 
@@ -199,7 +201,7 @@ struct CardView: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .frame(width: NotchGeometry.cardWidth, height: NotchGeometry.cardHeight)
+        .frame(width: width, height: NotchGeometry.cardHeight)
         .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }

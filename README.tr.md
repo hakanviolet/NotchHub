@@ -16,8 +16,15 @@ Böylece birden çok uygulama çentiği aynı anda kullanır ve hiçbiri diğeri
 - **Öne çıkarma (pulse):** Bir uygulama "yeni şarkı başladı" gibi bir anı birkaç saniyeliğine açık gösterebilir.
 - **Çentiksiz ekran** (harici monitör, çentiği gizleyen çözünürlük): menü çubuğunun ortasında siyah ada.
 
-Açılma şekli menü çubuğundaki NotchHub simgesinden seçilir: **Üzerine gelince** ya da **Tıklayınca**.
-Aynı menüde bağlı uygulamalar ve "Oturum Açılışında Başlat" var.
+Menü çubuğu simgesi bağlı uygulamaları listeler ve **Ayarlar… (⌘,)** penceresini açar:
+
+- **Görünüm:** açıkken en çok kart (1–4, ekrana sığacak kadar), kart genişliği, yandaki baloncuk,
+  şeklin fiziksel çentiği ne kadar taşacağı ve çentiksiz ekranlarda ada gösterilip gösterilmeyeceği.
+- **Davranış:** **üzerine gelince** ya da **tıklayınca** açılma, üzerine gelme gecikmesi, öne çıkarmanın süresi,
+  oturum açılışında başlatma.
+- **Uygulamalar:** bağlı olsun olmasın daha önce bağlanmış tüm istemciler. Birini çentikten gizle ya da
+  önceliğini elle kaydır (−3…+3).
+- **Hakkında:** sürüm, protokol sürümü ve soket yolu.
 
 ## Derleme ve kurulum
 
@@ -127,3 +134,4 @@ hub çalıştırdığı için gerçek istemcilerin verisi görünmez; bitince No
 - `Sources/NotchHub/NotchGeometry.swift` — çentik/ada ölçüleri ve yerleşim
 - `Sources/NotchHub/NotchWindow.swift` — ekran başına panel, fare izleme, açılma
 - `Sources/NotchHub/NotchViews.swift` — çentik şekli, kanatlar, kartlar
+- `Sources/NotchHub/Settings.swift`, `SettingsView.swift` — ayarlar ve Ayarlar penceresi

@@ -1,6 +1,5 @@
 import AppKit
 import Combine
-import ServiceManagement
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -8,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var server: HubServer!
     private var windows: [NotchWindowController] = []
     private var statusItem: NSStatusItem!
+    private lazy var settingsWindow = SettingsWindowController(model: model)
+    private var bag: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         server = HubServer(model: model)
@@ -32,6 +33,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+        installMainMenu()
+
+        // Ayar değişince pencereleri yeniden ölç (aynı döngüdeki değişiklikler tek seferde uygulanır).
+        Settings.shared.objectWillChange
+            .debounce(for: .milliseconds(30), scheduler: RunLoop.main)
+            .sink { [weak self] _ in self?.screensChanged() }
+            .store(in: &bag)
 
         if ProcessInfo.processInfo.environment["NOTCH_DEBUG"] != nil {
             DistributedNotificationCenter.default().addObserver(
@@ -51,6 +59,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 model.send(e, action: parts[2])
             }
         }
+        // settings:<sekme>[:<png yolu>] — ayarlar penceresini o sekmede açar, isteğe bağlı görüntüsünü yazar.
+        if cmd.hasPrefix("settings:") {
+            let parts = cmd.dropFirst("settings:".count).split(separator: ":", maxSplits: 1).map(String.init)
+            settingsWindow.show(tab: parts.first.flatMap(SettingsTab.init(rawValue:)))
+            if parts.count == 2 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.settingsWindow.snapshot(to: parts[1]) }
+            }
+        }
         if cmd.hasPrefix("snapshot:") {
             let dir = String(cmd.dropFirst("snapshot:".count))
             for (i, w) in windows.enumerated() {
@@ -65,10 +81,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Ekranlar
 
+    /// Çentikli ekranlar her zaman; çentiksiz olanlar yalnızca ada ayarı açıkken.
+    private var wantedScreens: [NSScreen] {
+        NSScreen.screens.filter { Settings.shared.showIsland || NotchGeometry.make(for: $0).style == .notch }
+    }
+
     @objc private func screensChanged() {
-        // Ekran eklenip çıkarıldıysa pencereleri baştan kur; yalnızca çözünürlük değiştiyse ölçüleri tazele.
-        let current = NSScreen.screens
-        if current.count != windows.count || zip(current, windows).contains(where: { $0 !== $1.screen }) {
+        // Ekran eklenip çıkarıldıysa pencereleri baştan kur; yalnızca ölçüler değiştiyse tazele.
+        let wanted = wantedScreens
+        if wanted.count != windows.count || zip(wanted, windows).contains(where: { $0 !== $1.screen }) {
             rebuildWindows()
         } else {
             windows.forEach { $0.refreshGeometry() }
@@ -77,62 +98,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func rebuildWindows() {
         windows.forEach { $0.invalidate() }
-        windows = NSScreen.screens.map { NotchWindowController(screen: $0, model: model) }
+        windows = wantedScreens.map { NotchWindowController(screen: $0, model: model) }
     }
 
     // MARK: - Menü
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        let clients = Dictionary(grouping: model.entries, by: { $0.client.name })
-        if clients.isEmpty {
+        let counts = Dictionary(grouping: model.entries, by: { $0.client.id }).mapValues(\.count)
+        if model.clients.isEmpty {
             menu.addItem(disabled("Bağlı uygulama yok"))
         } else {
             menu.addItem(disabled("Çentikteki uygulamalar"))
-            for (name, entries) in clients.sorted(by: { $0.key < $1.key }) {
-                menu.addItem(disabled("  \(name) — \(entries.count) etkinlik"))
+            for c in model.clients.sorted(by: { $0.name.lowercased() < $1.name.lowercased() }) {
+                let n = counts[c.id] ?? 0
+                let hidden = Settings.shared.isHidden(c.id) ? " (gizli)" : ""
+                menu.addItem(disabled("  \(c.name) — \(n) etkinlik\(hidden)"))
             }
         }
         menu.addItem(.separator())
-
-        let header = disabled("Çentik açılsın:")
-        menu.addItem(header)
-        for (mode, title) in [(OpenMode.hover, "Üzerine gelince"), (.click, "Tıklayınca")] {
-            let i = NSMenuItem(title: "  " + title, action: #selector(setMode(_:)), keyEquivalent: "")
-            i.target = self
-            i.representedObject = mode.rawValue
-            i.state = OpenMode.current == mode ? .on : .off
-            menu.addItem(i)
-        }
-        menu.addItem(.separator())
-
-        let login = NSMenuItem(title: "Oturum Açılışında Başlat", action: #selector(toggleLogin), keyEquivalent: "")
-        login.target = self
-        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        menu.addItem(login)
+        let settings = NSMenuItem(title: "Ayarlar…", action: #selector(openSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "NotchHub'dan Çık", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
-    @objc private func setMode(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let m = OpenMode(rawValue: raw) else { return }
-        OpenMode.current = m
-        windows.forEach { $0.setExpanded(false) }
-    }
+    @objc private func openSettings() { settingsWindow.show() }
 
-    @objc private func toggleLogin() {
-        do {
-            if SMAppService.mainApp.status == .enabled {
-                try SMAppService.mainApp.unregister()
-            } else {
-                try SMAppService.mainApp.register()
-            }
-        } catch {
-            let alert = NSAlert()
-            alert.messageText = "Oturum açılışı ayarı değiştirilemedi"
-            alert.informativeText = error.localizedDescription
-            alert.runModal()
-        }
+    /// Dock'ta görünmeyen uygulamada da ayarlar penceresi öndeyken ⌘, ⌘W ve ⌘Q çalışsın.
+    private func installMainMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        let app = NSMenu()
+        let settings = NSMenuItem(title: "Ayarlar…", action: #selector(openSettings), keyEquivalent: ",")
+        settings.target = self
+        app.addItem(settings)
+        app.addItem(.separator())
+        app.addItem(NSMenuItem(title: "Pencereyi Kapat", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
+        app.addItem(NSMenuItem(title: "NotchHub'dan Çık", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        appItem.submenu = app
+        main.addItem(appItem)
+        NSApp.mainMenu = main
     }
 
     private func disabled(_ title: String) -> NSMenuItem {

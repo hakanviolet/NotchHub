@@ -14,9 +14,23 @@ struct NotchGeometry: Equatable {
     let notchHeight: CGFloat
     /// Ada stilinde ekranın tepesinden boşluk.
     let topInset: CGFloat
+    /// Ayarlardan gelen yerleşim (ekrana sığacak şekilde sınırlanmış).
+    var maxCards = 3
+    var cardWidth: CGFloat = 300
 
-    static func make(for screen: NSScreen) -> NotchGeometry {
+    @MainActor static func make(for screen: NSScreen) -> NotchGeometry {
+        var g = shape(for: screen)
+        let s = Settings.shared
+        g.cardWidth = s.cardWidth.points
+        // Açık hâl ekranın kenarlarına taşmasın.
+        let fit = Int((screen.frame.width - 24 - 80 + cardSpacing) / (g.cardWidth + cardSpacing))
+        g.maxCards = max(1, min(s.maxCards, fit))
+        return g
+    }
+
+    @MainActor private static func shape(for screen: NSScreen) -> NotchGeometry {
         let f = screen.frame
+        let overlap = CGFloat(Settings.shared.notchOverlap)
         let forceIsland = ProcessInfo.processInfo.environment["NOTCH_FORCE_ISLAND"] != nil  // hata ayıklama
         if !forceIsland, screen.safeAreaInsets.top > 0, let l = screen.auxiliaryTopLeftArea, let r = screen.auxiliaryTopRightArea {
             // Bu alanlar bazı sürümlerde ekrana göre, bazılarında genel koordinatta geliyor.
@@ -24,8 +38,8 @@ struct NotchGeometry: Equatable {
             // Sistemin bildirdiği ölçü fiziksel çentikten bir tık küçük kalıyor; kenarlar görünmesin diye
             // biraz taşır (kullanıcı ekranında doğrulandı).
             return NotchGeometry(style: .notch, top: f.maxY, centerX: offset + (l.maxX + r.minX) / 2,
-                                 notchWidth: r.minX - l.maxX + Self.notchOverlap * 2,
-                                 notchHeight: screen.safeAreaInsets.top + Self.notchOverlap, topInset: 0)
+                                 notchWidth: r.minX - l.maxX + overlap * 2,
+                                 notchHeight: screen.safeAreaInsets.top + overlap, topInset: 0)
         }
         // Çentik yok (harici ekran ya da çentiği gizleyen çözünürlük): menü çubuğunun ortasında ada.
         var bar = f.maxY - screen.visibleFrame.maxY
@@ -35,15 +49,10 @@ struct NotchGeometry: Equatable {
                              notchWidth: 0, notchHeight: h, topInset: (bar - h) / 2)
     }
 
-    /// Çentiği her yönden ne kadar taşıracağımız (pt).
-    static let notchOverlap: CGFloat = 2
-
     // MARK: - Yerleşim
 
-    static let cardWidth: CGFloat = 300
     static let cardHeight: CGFloat = 132
     static let cardSpacing: CGFloat = 10
-    static let maxCards = 3
 
     /// Kapalıyken bir kanadın genişliği.
     var wing: CGFloat { notchHeight + 8 }
@@ -61,8 +70,8 @@ struct NotchGeometry: Equatable {
     }
 
     func openSize(cards: Int) -> CGSize {
-        let n = CGFloat(max(1, min(cards, Self.maxCards)))
-        let contentW = n * Self.cardWidth + (n - 1) * Self.cardSpacing + 2 * 12
+        let n = CGFloat(max(1, min(cards, maxCards)))
+        let contentW = n * cardWidth + (n - 1) * Self.cardSpacing + 2 * 12
         let header: CGFloat = style == .notch ? notchHeight : 8
         let w = max(contentW, closedSize(hasContent: true).width)
         let h = cards == 0 ? header + 44 : header + Self.cardHeight + 12
@@ -75,7 +84,7 @@ struct NotchGeometry: Equatable {
 
     /// Pencerenin sabit çerçevesi: en büyük açık hâli + gölge payı.
     var windowFrame: NSRect {
-        let size = openSize(cards: Self.maxCards)
+        let size = openSize(cards: maxCards)
         let w = size.width + 80, h = size.height + topInset + 40
         return NSRect(x: centerX - w / 2, y: top - h, width: w, height: h)
     }

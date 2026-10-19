@@ -2,15 +2,6 @@ import AppKit
 import Combine
 import SwiftUI
 
-enum OpenMode: String {
-    case hover, click
-
-    static var current: OpenMode {
-        get { OpenMode(rawValue: UserDefaults.standard.string(forKey: "openMode") ?? "") ?? .hover }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "openMode") }
-    }
-}
-
 /// Tek bir ekranın açık/kapalı durumu.
 @MainActor
 final class WindowState: ObservableObject {
@@ -108,11 +99,11 @@ final class NotchWindowController {
         let inClosed = closedRect.contains(p)
         let inOpen = openRect.contains(p)
 
-        if OpenMode.current == .hover {
+        if Settings.shared.openMode == .hover {
             if !state.expanded {
                 if inClosed {
                     if hoverSince == nil { hoverSince = Date() }
-                    if Date().timeIntervalSince(hoverSince!) > 0.12 { setExpanded(true) }
+                    if Date().timeIntervalSince(hoverSince!) > Settings.shared.hoverDelay { setExpanded(true) }
                 } else {
                     hoverSince = nil
                 }

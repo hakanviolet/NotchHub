@@ -20,8 +20,13 @@ much like iOS Live Activities. Many apps can share the notch at once without eve
 - **Pulse:** an app can briefly expand a moment, like "new song started", for a few seconds.
 - **No notch** (external display, or a resolution that hides the notch): a black island in the middle of the menu bar.
 
-Open behavior is chosen from the NotchHub menu bar icon: **on hover** or **on click**.
-The same menu lists connected apps and has "Launch at Login".
+The menu bar icon lists connected apps and opens **Settings… (⌘,)**:
+
+- **Appearance:** max cards when expanded (1–4, capped to fit the screen), card width, the side bubble,
+  how far the shape overlaps the physical notch, and whether to show the island on screens without a notch.
+- **Behavior:** open **on hover** or **on click**, hover delay, how long a pulse stays open, launch at login.
+- **Apps:** every client that has connected, live or not. Hide one from the notch or nudge its priority (−3…+3).
+- **About:** version, protocol version and socket path.
 
 ## Build and install
 
@@ -133,6 +138,7 @@ separate hub on its own socket, so your real clients' data never shows up, and r
 - `Sources/NotchHub/NotchGeometry.swift` — notch/island measurements and layout
 - `Sources/NotchHub/NotchWindow.swift` — per-screen panel, mouse tracking, expansion
 - `Sources/NotchHub/NotchViews.swift` — notch shape, wings, cards
+- `Sources/NotchHub/Settings.swift`, `SettingsView.swift` — preferences and the Settings window
 
 Code comments are in Turkish.
 

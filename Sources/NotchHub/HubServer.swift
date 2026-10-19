@@ -102,6 +102,7 @@ final class HubServer {
                 clients[k] = nil
             }
             c.info = info
+            model.connected(info)
             if let data = NotchFraming.encode(.welcome(version: NotchProtocol.version)) {
                 c.connection.send(content: data, completion: .contentProcessed { _ in })
             }
@@ -124,7 +125,10 @@ final class HubServer {
         guard let c = clients.removeValue(forKey: key) else { return }
         if let info = c.info {
             // Aynı kimlikle yeni bir bağlantı varsa etkinliklerini silme.
-            if !clients.values.contains(where: { $0.info?.id == info.id }) { model.removeAll(from: info.id) }
+            if !clients.values.contains(where: { $0.info?.id == info.id }) {
+                model.removeAll(from: info.id)
+                model.disconnected(info.id)
+            }
             log("ayrıldı: \(info.name)")
         }
     }

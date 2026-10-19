@@ -94,9 +94,9 @@ def focus(t, remaining, total=25 * 60):
 def download(t):
     return {
         "id": "download", "priority": -1, "title": t["dl"], "subtitle": t["dl_file"],
-        "leading": {"symbol": {"_0": "arrow.down.circle.fill", "tint": "blue"}},
+        "leading": {"symbol": {"_0": "arrow.down.circle", "tint": "blue"}},
         "trailing": {"text": {"_0": "50%", "tint": "blue"}},
-        "image": {"symbol": {"_0": "arrow.down.circle.fill"}},
+        "image": {"symbol": {"_0": "arrow.down.circle"}},
         "buttons": [{"action": "cancel", "symbol": "xmark", "tint": "gray"}],
         "progress": {"elapsed": 50, "total": 100, "rate": 0, "at": time.time(), "tint": "blue",
                      "startLabel": t["dl_left"], "endLabel": "2 min"},

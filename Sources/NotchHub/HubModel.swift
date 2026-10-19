@@ -15,6 +15,8 @@ final class HubModel: ObservableObject {
     }
 
     @Published private(set) var entries: [Entry] = []
+    /// Şu an bağlı istemciler (etkinliği olmasa da).
+    @Published private(set) var clients: [NotchClientInfo] = []
     /// Öne çıkarılmış etkinlik (pulse) ve bitiş zamanı.
     @Published private(set) var pulsing: String?
     private var pulseTask: Task<Void, Never>?
@@ -22,21 +24,36 @@ final class HubModel: ObservableObject {
     /// Olayı ilgili istemciye iletir (HubServer bağlar).
     var deliver: ((_ clientID: String, NotchEvent) -> Void)?
 
-    /// Öncelik, sonra en son güncellenen.
+    /// Gizlenmiş istemciler hariç; öncelik (+ kullanıcının eklediği), sonra en son güncellenen.
     var ordered: [Entry] {
-        entries.sorted { a, b in
-            a.activity.priority != b.activity.priority
-                ? a.activity.priority > b.activity.priority
-                : a.updatedAt > b.updatedAt
+        let s = Settings.shared
+        return entries.filter { !s.isHidden($0.client.id) }.sorted { a, b in
+            let pa = a.activity.priority + s.boost(a.client.id), pb = b.activity.priority + s.boost(b.client.id)
+            return pa != pb ? pa > pb : a.updatedAt > b.updatedAt
         }
     }
 
     var primary: Entry? {
-        if let p = pulsing, let e = entries.first(where: { $0.id == p }) { return e }
-        return ordered.first
+        let visible = ordered
+        if let p = pulsing, let e = visible.first(where: { $0.id == p }) { return e }
+        return visible.first
     }
 
-    var secondary: Entry? { ordered.first { $0.id != primary?.id } }
+    var secondary: Entry? {
+        guard Settings.shared.showBubble else { return nil }
+        let p = primary?.id
+        return ordered.first { $0.id != p }
+    }
+
+    func connected(_ info: NotchClientInfo) {
+        clients.removeAll { $0.id == info.id }
+        clients.append(info)
+        Settings.shared.remember(info)
+    }
+
+    func disconnected(_ id: String) {
+        clients.removeAll { $0.id == id }
+    }
 
     func upsert(_ a: NotchActivity, from client: NotchClientInfo) {
         let key = "\(client.id)/\(a.id)"
@@ -59,7 +76,8 @@ final class HubModel: ObservableObject {
         entries.removeAll { $0.client.id == clientID }
     }
 
-    func pulse(_ id: String, from clientID: String, seconds: Double = 3) {
+    func pulse(_ id: String, from clientID: String, seconds: Double? = nil) {
+        let seconds = seconds ?? Settings.shared.pulseSeconds
         let key = "\(clientID)/\(id)"
         guard entries.contains(where: { $0.id == key }) else { return }
         pulsing = key
