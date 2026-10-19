@@ -37,6 +37,8 @@ final class NotchWindowController {
     private let panel: NotchPanel
     private var timer: Timer?
     private var hoverSince: Date?
+    /// Hata ayıklama komutuyla açıldı: fare dışarıda olsa da `close` gelene kadar açık kalır (demo kaydı).
+    private var pinned = false
     private var leftSince: Date?
     private var clickMonitor: Any?
     private var bag: Set<AnyCancellable> = []
@@ -114,7 +116,7 @@ final class NotchWindowController {
                 } else {
                     hoverSince = nil
                 }
-            } else {
+            } else if !pinned {
                 if inOpen || inClosed {
                     leftSince = nil
                 } else {
@@ -127,9 +129,10 @@ final class NotchWindowController {
         if panel.ignoresMouseEvents == interactive { panel.ignoresMouseEvents = !interactive }
     }
 
-    func setExpanded(_ open: Bool) {
+    func setExpanded(_ open: Bool, pinned: Bool = false) {
         hoverSince = nil
         leftSince = nil
+        self.pinned = open && pinned
         guard state.expanded != open else { return }
         withAnimation(Self.spring) {
             state.expanded = open

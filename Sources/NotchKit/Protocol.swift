@@ -25,7 +25,10 @@ public enum NotchProtocol {
     /// Hub'ın hâlâ kabul ettiği en eski istemci sürümü.
     public static let minimumVersion = 1
 
+    /// `NOTCH_SOCKET` ortam değişkeni varsayılanı değiştirir (demo kaydı, test): o yolda ayrı bir hub çalışır,
+    /// varsayılan soketteki istemciler etkilenmez.
     public static var socketPath: String {
+        if let p = ProcessInfo.processInfo.environment["NOTCH_SOCKET"], !p.isEmpty { return p }
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("NotchHub", isDirectory: true)
         return dir.appendingPathComponent("hub.sock").path

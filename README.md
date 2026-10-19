@@ -117,6 +117,11 @@ Activity fields (only `id` and `title` are required):
 Run with `NOTCH_DEBUG=1` to log connections and events to the terminal and enable the `tools/notchctl.swift`
 commands: `open`, `close`, `snapshot:/folder`, `tap:<client>/<activity>/<action>`.
 `NOTCH_FORCE_ISLAND=1` forces the island style even on a notched display.
+`NOTCH_SOCKET=/path/hub.sock` runs the hub (and NotchKit clients) on a different socket.
+
+`python3 tools/demo.py` plays a scripted scene with made-up data for screenshots and recordings. It runs a
+separate hub on its own socket, so your real clients' data never shows up, and restores NotchHub when done
+(`--hold expanded`, `--island`, `--lang tr`; see `--help`).
 
 ## Layout
 

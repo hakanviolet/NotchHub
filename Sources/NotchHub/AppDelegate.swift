@@ -42,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Hata ayıklama: `open`, `close`, `snapshot:<klasör>` (ekran başına bir PNG).
     @objc private func debugCommand(_ n: Notification) {
         guard let cmd = n.object as? String else { return }
-        if cmd == "open" { windows.forEach { $0.setExpanded(true) } }
+        if cmd == "open" { windows.forEach { $0.setExpanded(true, pinned: true) } }
         if cmd == "close" { windows.forEach { $0.setExpanded(false) } }
         // tap:<istemci>/<etkinlik>/<eylem> — bir düğmeye basılmış gibi olay gönderir.
         if cmd.hasPrefix("tap:") {

@@ -111,6 +111,11 @@ Etkinlik alanları (yalnızca `id` ve `title` zorunlu):
 `NOTCH_DEBUG=1` ile çalıştırınca bağlantılar ve olaylar terminale yazılır ve `tools/notchctl.swift` komutları
 çalışır: `open`, `close`, `snapshot:/klasör`, `tap:<istemci>/<etkinlik>/<eylem>`.
 `NOTCH_FORCE_ISLAND=1` çentikli ekranda da ada görünümünü zorlar.
+`NOTCH_SOCKET=/yol/hub.sock` hub'ı (ve NotchKit istemcilerini) başka bir sokette çalıştırır.
+
+`python3 tools/demo.py` ekran görüntüsü ve kayıt için uydurma verili bir sahne oynatır. Ayrı bir sokette ayrı bir
+hub çalıştırdığı için gerçek istemcilerin verisi görünmez; bitince NotchHub'ı geri açar
+(`--hold expanded`, `--island`, `--lang tr`; ayrıntı `--help`).
 
 ## Yapı
 
