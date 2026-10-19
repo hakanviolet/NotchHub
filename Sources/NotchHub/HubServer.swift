@@ -82,14 +82,30 @@ final class HubServer {
 
     private func handle(_ m: NotchMessage, from c: Client) {
         switch m {
-        case .hello(let info):
+        case .hello(let info, let version):
+            guard version >= NotchProtocol.minimumVersion else {
+                // Önce hatayı gönder, sonra kapat; istemci neden reddedildiğini bilsin.
+                let msg = NotchMessage.error(code: "unsupported-version", message:
+                    "istemci v\(version), hub en az v\(NotchProtocol.minimumVersion) kabul ediyor")
+                let conn = c.connection
+                if let data = NotchFraming.encode(msg) {
+                    conn.send(content: data, completion: .contentProcessed { _ in conn.cancel() })
+                } else {
+                    c.connection.cancel()
+                }
+                log("reddedildi: \(info.name) v\(version)")
+                return
+            }
             // Aynı istemci yeniden bağlandıysa eski bağlantısını kapat.
             for (k, other) in clients where other !== c && other.info?.id == info.id {
                 other.connection.cancel()
                 clients[k] = nil
             }
             c.info = info
-            log("bağlandı: \(info.name) (\(info.id))")
+            if let data = NotchFraming.encode(.welcome(version: NotchProtocol.version)) {
+                c.connection.send(content: data, completion: .contentProcessed { _ in })
+            }
+            log("bağlandı: \(info.name) (\(info.id)) v\(version)")
         case .activity(let a):
             guard let info = c.info else { return }
             model.upsert(a, from: info)
@@ -99,8 +115,8 @@ final class HubServer {
         case .pulse(let id):
             guard let info = c.info else { return }
             model.pulse(id, from: info.id)
-        case .event:
-            break   // istemciden olay gelmez
+        case .welcome, .event, .error:
+            break   // yalnızca hub gönderir
         }
     }
 

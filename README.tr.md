@@ -64,10 +64,20 @@ Tam örnek: [`examples/timer.py`](examples/timer.py).
 
 | Yön | Mesaj |
 |---|---|
-| → hub | `{"type":"hello","client":{"id":"com.ornek","name":"Örnek"}}` (ilk mesaj) |
+| → hub | `{"type":"hello","version":1,"client":{"id":"com.ornek","name":"Örnek"}}` (ilk mesaj) |
 | → hub | `{"type":"activity","activity":{...}}` ekle/güncelle |
 | → hub | `{"type":"end","id":"timer"}` · `{"type":"pulse","id":"timer"}` |
+| hub → | `{"type":"welcome","version":1}` `hello`'ya yanıt |
 | hub → | `{"type":"event","event":{"activity":"timer","action":"stop","value":null}}` |
+| hub → | `{"type":"error","code":"unsupported-version","message":"..."}` ardından bağlantı kapanır |
+
+#### Sürümleme
+
+`hello` içindeki `version`, istemcinin yazıldığı protokol sürümüdür (şu an `1`; verilmezse `1` sayılır).
+Yeni alanlar ve mesaj türleri sürüm artırılmadan, isteğe bağlı olarak eklenir; bu yüzden **tanımadığın alanları ve
+mesaj türlerini yok say**. Sürüm yalnızca mevcut istemcileri bozacak bir değişiklikte artar; hub o zaman en düşük
+sürümünden eski istemcileri `unsupported-version` ile reddeder. Swift'te `NotchClient.hubVersion` hub'ın sürümünü
+tutar, `onError` reddi bildirir.
 
 Etkinlik alanları (yalnızca `id` ve `title` zorunlu):
 

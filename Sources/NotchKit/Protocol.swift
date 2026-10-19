@@ -1,19 +1,29 @@
 import Foundation
 
-// NotchHub protokolü (v1)
+// NotchHub protokolü
 //
 // İstemciler NotchHub'a `NotchProtocol.socketPath` adresindeki Unix soketi üzerinden bağlanır ve satır başına
 // bir JSON mesajı gönderir. İstemci çizim yapmaz; ne gösterileceğini `NotchActivity` ile tarif eder, NotchHub çizer.
 // Böylece birden çok uygulama çentiği aynı anda kullanabilir ve hiçbiri diğerinin üstüne binmez.
 //
-//   istemci → hub   {"type":"hello","client":{"id":"com.ornek.app","name":"Örnek"}}
+//   istemci → hub   {"type":"hello","version":1,"client":{"id":"com.ornek.app","name":"Örnek"}}
 //                   {"type":"activity","activity":{...}}      ekle ya da güncelle
 //                   {"type":"end","id":"etkinlik-kimliği"}    kaldır
 //                   {"type":"pulse","id":"etkinlik-kimliği"}  birkaç saniyeliğine öne çıkar
-//   hub → istemci   {"type":"event","event":{"activity":"...","action":"toggle","value":12.5}}
+//   hub → istemci   {"type":"welcome","version":1}                   hello'ya yanıt
+//                   {"type":"event","event":{"activity":"...","action":"toggle","value":12.5}}
+//                   {"type":"error","code":"unsupported-version","message":"..."}   ardından bağlantı kapanır
+//
+// Sürümleme: `hello` içindeki `version` istemcinin hangi protokol sürümüne göre yazıldığını söyler; yoksa 1 sayılır.
+// Yeni alanlar ve mesaj türleri sürümü artırmadan, isteğe bağlı olarak eklenir: iki taraf da bilmediği alanları
+// ve türleri yok sayar. Sürüm yalnızca eski istemcileri bozacak bir değişiklikte artar; hub
+// `minimumVersion`'dan eski istemcileri `unsupported-version` hatasıyla reddeder.
 
 public enum NotchProtocol {
+    /// Bu kütüphanenin ve hub'ın konuştuğu sürüm.
     public static let version = 1
+    /// Hub'ın hâlâ kabul ettiği en eski istemci sürümü.
+    public static let minimumVersion = 1
 
     public static var socketPath: String {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -191,22 +201,31 @@ public struct NotchEvent: Codable, Equatable, Sendable {
 
 /// Kablodaki mesaj.
 public enum NotchMessage: Codable, Equatable, Sendable {
-    case hello(client: NotchClientInfo)
+    case hello(client: NotchClientInfo, version: Int = NotchProtocol.version)
+    case welcome(version: Int)
     case activity(activity: NotchActivity)
     case end(id: String)
     case pulse(id: String)
     case event(event: NotchEvent)
+    case error(code: String, message: String)
 
-    private enum CodingKeys: String, CodingKey { case type, client, activity, id, event }
+    private enum CodingKeys: String, CodingKey { case type, version, client, activity, id, event, code, message }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         switch try c.decode(String.self, forKey: .type) {
-        case "hello": self = .hello(client: try c.decode(NotchClientInfo.self, forKey: .client))
+        case "hello":
+            // `version` sonradan eklendi; göndermeyen istemciler v1'dir.
+            self = .hello(client: try c.decode(NotchClientInfo.self, forKey: .client),
+                          version: try c.decodeIfPresent(Int.self, forKey: .version) ?? 1)
+        case "welcome": self = .welcome(version: try c.decodeIfPresent(Int.self, forKey: .version) ?? 1)
         case "activity": self = .activity(activity: try c.decode(NotchActivity.self, forKey: .activity))
         case "end": self = .end(id: try c.decode(String.self, forKey: .id))
         case "pulse": self = .pulse(id: try c.decode(String.self, forKey: .id))
         case "event": self = .event(event: try c.decode(NotchEvent.self, forKey: .event))
+        case "error":
+            self = .error(code: try c.decode(String.self, forKey: .code),
+                          message: try c.decodeIfPresent(String.self, forKey: .message) ?? "")
         case let t: throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "bilinmeyen tür \(t)")
         }
     }
@@ -214,11 +233,16 @@ public enum NotchMessage: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .hello(let client): try c.encode("hello", forKey: .type); try c.encode(client, forKey: .client)
+        case .hello(let client, let version):
+            try c.encode("hello", forKey: .type); try c.encode(version, forKey: .version)
+            try c.encode(client, forKey: .client)
+        case .welcome(let version): try c.encode("welcome", forKey: .type); try c.encode(version, forKey: .version)
         case .activity(let a): try c.encode("activity", forKey: .type); try c.encode(a, forKey: .activity)
         case .end(let id): try c.encode("end", forKey: .type); try c.encode(id, forKey: .id)
         case .pulse(let id): try c.encode("pulse", forKey: .type); try c.encode(id, forKey: .id)
         case .event(let e): try c.encode("event", forKey: .type); try c.encode(e, forKey: .event)
+        case .error(let code, let message):
+            try c.encode("error", forKey: .type); try c.encode(code, forKey: .code); try c.encode(message, forKey: .message)
         }
     }
 }

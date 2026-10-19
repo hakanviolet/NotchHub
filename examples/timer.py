@@ -11,7 +11,7 @@ s.connect(SOCK)
 s.setblocking(False)
 send = lambda m: s.sendall((json.dumps(m) + "\n").encode())
 
-send({"type": "hello", "client": {"id": "ornek.zamanlayici", "name": "Zamanlayıcı"}})
+send({"type": "hello", "version": 1, "client": {"id": "ornek.zamanlayici", "name": "Zamanlayıcı"}})
 start = time.time()
 buf = b""
 while True:
@@ -31,7 +31,12 @@ while True:
         pass
     while b"\n" in buf:
         line, buf = buf.split(b"\n", 1)
-        ev = json.loads(line).get("event", {})
+        m = json.loads(line)
+        if m.get("type") == "error":   # ör. unsupported-version: hub bağlantıyı kapatır
+            sys.exit(f"NotchHub reddetti: {m.get('message')}")
+        if m.get("type") != "event":   # welcome ve ileride eklenecek türler
+            continue
+        ev = m["event"]
         print("olay:", ev)
         if ev.get("action") == "stop":
             left = 0

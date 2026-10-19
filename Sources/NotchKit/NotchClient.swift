@@ -13,6 +13,10 @@ public final class NotchClient: @unchecked Sendable {
     public var onEvent: ((NotchEvent) -> Void)?
     /// Bağlantı durumu değiştiğinde (true = NotchHub'a bağlı).
     public var onConnectionChange: ((Bool) -> Void)?
+    /// Hub reddederse (ör. `unsupported-version`). Bu durumda istemci yeniden bağlanmayı bırakır.
+    public var onError: ((_ code: String, _ message: String) -> Void)?
+    /// Bağlı hub'ın protokol sürümü; `welcome` gelene kadar nil. Ana kuyrukta güncellenir.
+    public private(set) var hubVersion: Int?
 
     private let info: NotchClientInfo
     private let queue = DispatchQueue(label: "NotchKit.client")
@@ -75,7 +79,10 @@ public final class NotchClient: @unchecked Sendable {
                 receive(on: conn)
             case .failed, .cancelled, .waiting:
                 guard conn === connection else { return }
-                if connected { notifyConnection(false) }
+                if connected {
+                    notifyConnection(false)
+                    DispatchQueue.main.async { self.hubVersion = nil }
+                }
                 connected = false
                 conn.cancel()
                 connection = nil
@@ -92,8 +99,19 @@ public final class NotchClient: @unchecked Sendable {
         conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, done, error in
             guard let self, conn === connection else { return }
             if let data, !data.isEmpty {
-                for case .event(let e) in framing.feed(data) {
-                    DispatchQueue.main.async { self.onEvent?(e) }
+                for m in framing.feed(data) {
+                    switch m {
+                    case .event(let e):
+                        DispatchQueue.main.async { self.onEvent?(e) }
+                    case .welcome(let v):
+                        DispatchQueue.main.async { self.hubVersion = v }
+                    case .error(let code, let message):
+                        // Hub bu istemciyi kabul etmiyor; her 2 saniyede bir yeniden denemenin anlamı yok.
+                        if code == "unsupported-version" { stopped = true }
+                        DispatchQueue.main.async { self.onError?(code, message) }
+                    default:
+                        break
+                    }
                 }
             }
             if done || error != nil {

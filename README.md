@@ -70,10 +70,20 @@ Full example: [`examples/timer.py`](examples/timer.py).
 
 | Direction | Message |
 |---|---|
-| → hub | `{"type":"hello","client":{"id":"com.example","name":"Example"}}` (must be first) |
+| → hub | `{"type":"hello","version":1,"client":{"id":"com.example","name":"Example"}}` (must be first) |
 | → hub | `{"type":"activity","activity":{...}}` add or update |
 | → hub | `{"type":"end","id":"timer"}` · `{"type":"pulse","id":"timer"}` |
+| hub → | `{"type":"welcome","version":1}` reply to `hello` |
 | hub → | `{"type":"event","event":{"activity":"timer","action":"stop","value":null}}` |
+| hub → | `{"type":"error","code":"unsupported-version","message":"..."}` then the connection closes |
+
+#### Versioning
+
+`version` in `hello` is the protocol version your client was written against (currently `1`; omitted means `1`).
+New fields and message types are added as optional without bumping the version, so **ignore fields and message
+types you don't recognize**. The version only goes up for a change that would break existing clients; the hub then
+rejects clients older than its minimum with `unsupported-version`. Swift clients get this for free:
+`NotchClient.hubVersion` holds the hub's version and `onError` reports a rejection.
 
 Activity fields (only `id` and `title` are required):
 
