@@ -2,6 +2,8 @@
 
 **English** · [Türkçe](README.tr.md)
 
+![NotchHub demo: a focus timer takes the notch wings while music moves to the bubble, then all activities expand as cards](docs/demo.gif)
+
 A host app for the MacBook notch (or a Dynamic Island–style pill on screens without one).
 Apps don't put their own windows in the notch. Instead they **describe what to show** and NotchHub draws it,
 much like iOS Live Activities. Many apps can share the notch at once without ever drawing over each other.

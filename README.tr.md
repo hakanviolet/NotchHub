@@ -2,6 +2,8 @@
 
 [English](README.md) · **Türkçe**
 
+![NotchHub demosu: odak zamanlayıcısı kanatlara geçer, müzik baloncuğa kayar, sonra tüm etkinlikler kart olarak açılır](docs/demo.gif)
+
 MacBook çentiğini (ya da çentiksiz ekranlarda Dynamic Island benzeri bir adayı) yöneten ana uygulama.
 Başka uygulamalar çentiğe kendi pencerelerini koymaz; NotchHub'a **ne göstereceklerini tarif eder**, NotchHub çizer.
 Böylece birden çok uygulama çentiği aynı anda kullanır ve hiçbiri diğerinin üstüne binmez.
